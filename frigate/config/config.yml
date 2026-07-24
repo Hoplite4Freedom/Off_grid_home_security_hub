@@ -13,8 +13,8 @@ mqtt:
   host: mosquitto
   port: 1883
   topic_prefix: frigate
-  user: "{FRIGATE_MQTT_USER}"
-  password: "{FRIGATE_MQTT_PASSWORD}"
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
 
 detectors:
   coral1:
@@ -137,10 +137,10 @@ cameras:
       driveway_zone:
         coordinates: 0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0
     onvif:
-      host: "{FRIGATE_CAM_DRIVEWAY_IP}"
+      host: '{FRIGATE_CAM_DRIVEWAY_IP}'
       port: 8000
-      user: "{FRIGATE_CAM_USER}"
-      password: "{FRIGATE_CAM_PASSWORD}"
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASSWORD}'
       autotracking:
         # Phase 3: flip to true after creating a "home" preset in the camera
         # firmware and redrawing driveway_zone. On first tracked run, set
@@ -160,3 +160,4 @@ cameras:
       streams:
         Main: driveway_ptz
         Sub: driveway_ptz_sub
+version: 0.17-0
