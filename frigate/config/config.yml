@@ -1,0 +1,163 @@
+# Frigate configuration — Off-Grid Home Security Hub
+#
+# Target: Frigate 0.17+ on ZimaBoard 2 1664 (Intel N150) with Google Coral USB TPU(s).
+# Secrets are injected from .env via docker compose — any variable prefixed FRIGATE_
+# can be referenced as {FRIGATE_VAR_NAME}. Never hardcode credentials in this file.
+#
+# Two example cameras are defined below (one fixed, one PTZ with auto-tracking
+# prepared). Copy the blocks to scale out to 12–20 cameras.
+# Config reference: https://docs.frigate.video/configuration/reference
+
+mqtt:
+  enabled: true
+  host: mosquitto
+  port: 1883
+  topic_prefix: frigate
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
+
+detectors:
+  coral1:
+    type: edgetpu
+    device: usb:0
+  # Second Coral TPU — uncomment when installed (Phase 4, or when coral1
+  # utilization sustains above 70%).
+  # coral2:
+  #   type: edgetpu
+  #   device: usb:1
+
+ffmpeg:
+  # Intel N150 iGPU hardware-accelerated decode (VAAPI)
+  hwaccel_args: preset-vaapi
+
+# Detection runs on the low-resolution sub-streams at 5 FPS for efficiency.
+detect:
+  enabled: true
+  fps: 5
+
+objects:
+  track:
+    - person
+    - car
+  filters:
+    person:
+      min_score: 0.7
+    car:
+      min_score: 0.6
+
+# Global motion defaults — tune per camera after the 2-week baseline (Phase 2).
+# Raise threshold to 55+ at night on cameras with IR bounce issues.
+motion:
+  threshold: 50
+  contour_area: 40
+
+# Motion-triggered recording only. Tiered retention (Frigate 0.17+):
+# motion video kept 7 days; segments overlapping alerts/detections kept 10 days.
+record:
+  enabled: true
+  motion:
+    days: 7
+  alerts:
+    retain:
+      days: 10
+      mode: motion
+    pre_capture: 5
+    post_capture: 5
+  detections:
+    retain:
+      days: 10
+      mode: motion
+    pre_capture: 5
+    post_capture: 5
+
+snapshots:
+  enabled: true
+  retain:
+    default: 10
+
+birdseye:
+  enabled: true
+  mode: objects
+
+# go2rtc restreams each camera once, so Frigate's detect/record roles and any
+# live viewers share a single connection to the camera.
+go2rtc:
+  streams:
+    front_door:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASSWORD}@{FRIGATE_CAM_FRONT_DOOR_IP}:554/stream1
+    front_door_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASSWORD}@{FRIGATE_CAM_FRONT_DOOR_IP}:554/stream2
+    driveway_ptz:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASSWORD}@{FRIGATE_CAM_DRIVEWAY_IP}:554/stream1
+    driveway_ptz_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASSWORD}@{FRIGATE_CAM_DRIVEWAY_IP}:554/stream2
+
+cameras:
+  # ── Example 1: fixed camera ─────────────────────────────────────────────
+  front_door:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_door_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/front_door
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+    detect:
+      # Match your camera's sub-stream resolution
+      width: 1280
+      height: 720
+    live:
+      streams:
+        Main: front_door
+        Sub: front_door_sub
+
+  # ── Example 2: PTZ camera with auto-tracking prepared ───────────────────
+  driveway_ptz:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/driveway_ptz_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/driveway_ptz
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+    detect:
+      width: 1280
+      height: 720
+    zones:
+      # Placeholder full-frame zone — redraw in the Frigate UI
+      # (Settings → Masks / Zones) to restrict tracking to the driveway.
+      driveway_zone:
+        coordinates: 0.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0
+    onvif:
+      host: '{FRIGATE_CAM_DRIVEWAY_IP}'
+      port: 8000
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASSWORD}'
+      autotracking:
+        # Phase 3: flip to true after creating a "home" preset in the camera
+        # firmware and redrawing driveway_zone. On first tracked run, set
+        # calibrate_on_startup: true once; Frigate writes movement_weights
+        # back to this file — then set it back to false.
+        enabled: false
+        calibrate_on_startup: false
+        zooming: disabled
+        track:
+          - person
+          - car
+        required_zones:
+          - driveway_zone
+        return_preset: home
+        timeout: 30
+    live:
+      streams:
+        Main: driveway_ptz
+        Sub: driveway_ptz_sub
+version: 0.17-0
