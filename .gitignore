@@ -1,0 +1,24 @@
+# Secrets and local environment — never commit
+.env
+
+# Frigate runtime data (database, model cache) — keep only the config template
+frigate/config/*
+!frigate/config/config.yml
+
+# Home Assistant runtime config (generated on first boot)
+homeassistant/config/*
+!homeassistant/config/.gitkeep
+
+# Mosquitto runtime files and credentials
+mosquitto/config/passwd
+mosquitto/data/
+mosquitto/log/
+
+# Recordings must never end up in git
+media/
+*.mp4
+*.jpg
+
+# OS cruft
+.DS_Store
+Thumbs.db
