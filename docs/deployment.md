@@ -47,7 +47,17 @@ touch mosquitto/config/passwd
 docker compose up -d mosquitto
 docker compose exec mosquitto mosquitto_passwd -b /mosquitto/config/passwd frigate '<FRIGATE_MQTT_PASSWORD from .env>'
 docker compose exec mosquitto mosquitto_passwd -b /mosquitto/config/passwd homeassistant '<a second strong password>'
+# Lock down the credentials file — the broker runs as uid 1883 inside the
+# container and Mosquitto 2.1+ refuses world-readable password files.
+sudo chown 1883:1883 mosquitto/config/passwd && sudo chmod 0600 mosquitto/config/passwd
 docker compose restart mosquitto
+```
+
+Verify authentication is enforced (first command must be refused, second must succeed):
+
+```bash
+docker compose exec mosquitto mosquitto_pub -h localhost -t test -m hi                     # refused
+docker compose exec mosquitto mosquitto_pub -h localhost -u frigate -P '<password>' -t test -m hi  # OK
 ```
 
 ## 3. Start the Stack
