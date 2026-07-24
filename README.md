@@ -36,7 +36,10 @@ Full details: [docs/hardware.md](docs/hardware.md)
 ├── .env.example              # Environment template (copy to .env, never commit .env)
 ├── frigate/config/config.yml # Frigate configuration template
 ├── mosquitto/config/         # MQTT broker configuration
-├── homeassistant/config/     # Home Assistant config (generated at first boot)
+├── homeassistant/config/
+│   └── packages/             # Automations: chain activation, alerts, PTZ night mode
+├── scripts/
+│   └── storage-setup.sh      # ZFS RAIDZ1 recording pool provisioning
 └── docs/                     # Architecture, deployment, and decision docs
 ```
 

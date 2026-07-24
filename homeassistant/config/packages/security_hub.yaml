@@ -1,0 +1,135 @@
+# Security Hub automation package
+#
+# Enable packages once in homeassistant/config/configuration.yaml:
+#
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Requirements:
+#   - MQTT integration connected to the Mosquitto broker (docs/deployment.md §5)
+#   - Camera names below must match frigate/config/config.yml
+#   - PTZ presets ("home", "entry") must exist in the camera firmware
+#   - `notify.notify` targets your default mobile app; change it if you use a
+#     specific service like notify.mobile_app_<device>
+#
+# Snapshot images in notifications use the Frigate HA integration's media proxy
+# (/api/frigate/notifications/...), which works from the mobile app at home and
+# over Tailscale without exposing Frigate itself.
+
+input_boolean:
+  security_alerts_armed:
+    name: Security alert notifications
+    icon: mdi:shield-home
+
+automation:
+  # ── Chain camera activation (Phase 5) ─────────────────────────────────────
+  # Front door person detection swings the driveway PTZ to its "entry" preset
+  # and enables its autotracker, so the subject is tracked as they move on.
+  - id: security_hub_chain_front_door_to_driveway
+    alias: "Security Hub: chain front door person to driveway PTZ"
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: mqtt
+        topic: frigate/events
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json['type'] == 'new'
+             and trigger.payload_json['after']['camera'] == 'front_door'
+             and trigger.payload_json['after']['label'] == 'person' }}
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: frigate/driveway_ptz/ptz
+          payload: preset_entry
+      - action: mqtt.publish
+        data:
+          topic: frigate/driveway_ptz/ptz_autotracker/set
+          payload: "ON"
+      # Let the chase play out, then return to the wide "home" preset.
+      - delay:
+          seconds: 60
+      - action: mqtt.publish
+        data:
+          topic: frigate/driveway_ptz/ptz
+          payload: preset_home
+
+  # ── Rich push notifications for alerts ────────────────────────────────────
+  # Fires when Frigate classifies review activity as an alert (person/car by
+  # default). Includes a snapshot and deep-links to the clip in the app.
+  - id: security_hub_alert_notification
+    alias: "Security Hub: push notification on Frigate alert"
+    mode: parallel
+    max: 10
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    conditions:
+      - condition: state
+        entity_id: input_boolean.security_alerts_armed
+        state: "on"
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json['type'] == 'new'
+             and trigger.payload_json['after']['severity'] == 'alert' }}
+    actions:
+      - variables:
+          camera: "{{ trigger.payload_json['after']['camera'] }}"
+          objects: "{{ trigger.payload_json['after']['data']['objects'] | join(', ') }}"
+          event_id: "{{ trigger.payload_json['after']['data']['detections'][0] }}"
+      - action: notify.notify
+        data:
+          title: "Security alert: {{ camera | replace('_', ' ') }}"
+          message: "{{ objects }} detected at {{ now().strftime('%H:%M:%S') }}"
+          data:
+            image: "/api/frigate/notifications/{{ event_id }}/snapshot.jpg"
+            clickAction: "/api/frigate/notifications/{{ event_id }}/{{ camera }}/clip.mp4"
+            tag: "frigate-{{ event_id }}"
+
+  # ── Audit trail (Phase 5: centralized event logging) ──────────────────────
+  - id: security_hub_alert_logbook
+    alias: "Security Hub: log Frigate alerts to logbook"
+    mode: queued
+    max: 25
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json['type'] == 'new'
+             and trigger.payload_json['after']['severity'] == 'alert' }}
+    actions:
+      - action: logbook.log
+        data:
+          name: Frigate alert
+          message: >-
+            {{ trigger.payload_json['after']['data']['objects'] | join(', ') }}
+            on {{ trigger.payload_json['after']['camera'] }}
+            (review {{ trigger.payload_json['after']['id'] }})
+
+  # ── Night mode for PTZ tracking ───────────────────────────────────────────
+  # IR reflections cause false tracking triggers at night; pause the
+  # autotracker overnight per the tuning guidance in docs/hardware.md.
+  - id: security_hub_autotracker_night_off
+    alias: "Security Hub: pause PTZ autotracking overnight"
+    triggers:
+      - trigger: time
+        at: "23:00:00"
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: frigate/driveway_ptz/ptz_autotracker/set
+          payload: "OFF"
+
+  - id: security_hub_autotracker_morning_on
+    alias: "Security Hub: resume PTZ autotracking in the morning"
+    triggers:
+      - trigger: time
+        at: "06:00:00"
+    actions:
+      - action: mqtt.publish
+        data:
+          topic: frigate/driveway_ptz/ptz_autotracker/set
+          payload: "ON"

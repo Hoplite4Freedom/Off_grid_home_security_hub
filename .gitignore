@@ -5,9 +5,10 @@
 frigate/config/*
 !frigate/config/config.yml
 
-# Home Assistant runtime config (generated on first boot)
+# Home Assistant runtime config (generated on first boot) — except our packages
 homeassistant/config/*
 !homeassistant/config/.gitkeep
+!homeassistant/config/packages
 
 # Mosquitto runtime files and credentials
 mosquitto/config/passwd

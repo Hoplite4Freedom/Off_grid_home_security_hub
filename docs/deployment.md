@@ -100,7 +100,20 @@ In the Frigate UI, open **System metrics** and confirm:
    `http://<zimaboard-ip>:5000` is not exposed by default — use
    `https://<zimaboard-ip>:8971` with a Frigate API user, or add a
    `127.0.0.1:5000:5000` port mapping if HA and Frigate share the host.
-4. Automations (chain camera activation, notifications) land in Phase 5.
+4. Enable the bundled automation package (chain camera activation, alert
+   notifications, PTZ night mode — see
+   `homeassistant/config/packages/security_hub.yaml`). Add this once to
+   `homeassistant/config/configuration.yaml`, then restart Home Assistant:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+   The package assumes the example camera names (`front_door`, `driveway_ptz`)
+   and PTZ presets named `home` and `entry` in the camera firmware — adjust to
+   match your fleet. Arm/disarm push notifications with the
+   `input_boolean.security_alerts_armed` toggle it creates.
 
 ## 6. Remote Access
 
