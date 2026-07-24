@@ -1,6 +1,18 @@
 # Off_grid_home_security_hub
 Home camera and security hub - Zima board2 1664, Dual Coral AI, 3x 4TB storage and Backup
 
+## Project status
+
+This document is the original design session summary. It has since been reviewed, and the review
+findings, open decisions, and delivery plan are tracked separately:
+
+- [Repository review](docs/repository-review.md) — findings against this design, by severity
+- [Decision register](docs/decisions.md) — the open questions below, with recommended defaults
+- [Path to completion](docs/path-to-completion.md) — staged plan with measurable exit criteria
+
+Several figures and the Frigate configuration snippet in this document need correction before use;
+see the review for details.
+
 
 Home Lab Security Camera Hub - Session Summary
 Date: March 15, 2026
