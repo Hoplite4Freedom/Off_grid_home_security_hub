@@ -1,6 +1,15 @@
 # Off_grid_home_security_hub
 Home camera and security hub - Zima board2 1664, Dual Coral AI, 3x 4TB storage and Backup
 
+## Project status
+
+- **[docs/REVIEW.md](docs/REVIEW.md)** — technical review of the plan below, with corrections.
+  Note in particular that the Frigate YAML in this document uses a schema that current Frigate
+  versions reject, and that the off-grid power system has not yet been designed.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — path from this document to a working, rebuildable
+  deployment, including recommended answers to the open questions listed at the end.
+
+The planning summary below is preserved as originally written.
 
 Home Lab Security Camera Hub - Session Summary
 Date: March 15, 2026
