@@ -13,23 +13,24 @@
 ## Recommended Implementation: ZFS RAIDZ1
 
 ZFS RAIDZ1 provides the same single-drive redundancy as RAID 5 plus checksumming,
-snapshots, and compression:
+snapshots, and compression. Provisioning is scripted — run it with no arguments
+first to list your disks, then pass the three stable disk IDs:
 
 ```bash
-sudo apt install -y zfsutils-linux
-
-# Identify disks by stable ID (never use /dev/sdX names for pool creation)
-ls -l /dev/disk/by-id/
-
-# Create the pool (replace with your actual disk IDs)
-sudo zpool create -o ashift=12 frigate-pool raidz1 \
+sudo ./scripts/storage-setup.sh
+sudo ./scripts/storage-setup.sh \
   /dev/disk/by-id/nvme-XXXX \
   /dev/disk/by-id/ata-YYYY \
   /dev/disk/by-id/ata-ZZZZ
-
-# Video is already compressed — disable ZFS compression overhead for the media set
-sudo zfs create -o compression=off -o recordsize=1M -o mountpoint=/mnt/frigate-media frigate-pool/media
 ```
+
+The script installs ZFS if needed, refuses disks with mounted filesystems,
+requires typed confirmation before destroying anything, and creates:
+
+- Pool `frigate-pool` (RAIDZ1, `ashift=12`, `atime=off`)
+- Dataset `frigate-pool/media` mounted at `/mnt/frigate-media`
+  (`compression=off` and `recordsize=1M` — video is already compressed and
+  writes in large sequential segments)
 
 Set `FRIGATE_MEDIA_PATH=/mnt/frigate-media` in `.env` to point the stack at the pool.
 
